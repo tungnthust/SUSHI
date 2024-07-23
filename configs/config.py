@@ -45,7 +45,7 @@ def get_arguments(args=None):
     parser = argparse.ArgumentParser()
 
     # EXPERIMENT
-    parser.add_argument('--experiment_mode', help='train/test/train-cval/eval', type=str, required=True)  # What kind of an experiment will be conducted
+    parser.add_argument('--experiment_mode', help='train/test/train-cval/eval', type=str)  # What kind of an experiment will be conducted
     parser.add_argument('--run_id', help='identifier string for current experiment', type=str, default=None)
     parser.add_argument('--connectivity', help='chunk or full', type=str, default='chunk')
 
