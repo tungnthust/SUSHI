@@ -373,7 +373,6 @@ class MOTDataset:
         frames_per_level = torch.tensor(self.config.frames_per_level)
         start_frame = torch.tensor(start_frame)
         end_frame = torch.tensor(end_frame)
-
         # Create the object with float32 and int64 precision and send to the device
         hierarchical_graph = HierarchicalGraph(x_reid=x_reid.float(), x_node=x_node.float(), x_frame=x_frame.long(),
                                                x_bbox=x_bbox.float(), x_feet=x_feet.float(), x_center=x_center.float(), 
