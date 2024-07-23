@@ -15,3 +15,5 @@
 /TrackEval/data/
 /TrackEval/data.zip
 *.ipynb
+**.pt
+**/detection_embeddings/
