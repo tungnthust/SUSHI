@@ -31,6 +31,7 @@ class MOTDataset:
         self.seq_and_frames = self._index_dataset()
         self.embeddings_dir = self.config.embeddings_dir
         # Sparse index per sequence for val and test datasets
+        self.load_or_process_embedding_detections()
         if self.mode in ('val', 'test'):
             self.sparse_frames_per_seq = self._sparse_index_dataset()
 
