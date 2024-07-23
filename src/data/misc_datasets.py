@@ -10,10 +10,9 @@ class BoundingBoxDataset(Dataset):
     Class used to process detections. Given a DataFrame (det_df) with detections of a MOT sequence, it returns
     the image patch corresponding to the detection's bounding box coordinates
     """
-    def __init__(self, det_df, seq_info_dict, pad_=True, pad_mode='mean', output_size=(128, 64),
+    def __init__(self, det_df, pad_=True, pad_mode='mean', output_size=(128, 64),
                  return_det_ids_and_frame=False, transforms=None):
         self.det_df = det_df
-        self.seq_info_dict = seq_info_dict
         self.pad = pad_
         self.pad_mode = pad_mode
         if transforms is None:
@@ -41,16 +40,17 @@ class BoundingBoxDataset(Dataset):
             self.curr_img_path = row['frame_path']
 
         frame_img = self.curr_img
-
+        frame_height = frame_img.shape[0]
+        frame_width = frame_img.shape[1]
         # Crop the bounding box, and pad it if necessary to
         bb_img = frame_img[int(max(0, row['bb_top'])): int(max(0, row['bb_bot'])),
                    int(max(0, row['bb_left'])): int(max(0, row['bb_right']))]
         if self.pad:
             x_height_pad = np.abs(row['bb_top'] - max(row['bb_top'], 0)).astype(int)
-            y_height_pad = np.abs(row['bb_bot'] - min(row['bb_bot'], self.seq_info_dict['frame_height'])).astype(int)
+            y_height_pad = np.abs(row['bb_bot'] - min(row['bb_bot'], frame_height)).astype(int)
 
             x_width_pad = np.abs(row['bb_left'] - max(row['bb_left'], 0)).astype(int)
-            y_width_pad = np.abs(row['bb_right'] - min(row['bb_right'], self.seq_info_dict['frame_width'])).astype(int)
+            y_width_pad = np.abs(row['bb_right'] - min(row['bb_right'], frame_width)).astype(int)
 
             bb_img = pad(bb_img, ((x_height_pad, y_height_pad), (x_width_pad, y_width_pad), (0, 0)), mode=self.pad_mode)
 

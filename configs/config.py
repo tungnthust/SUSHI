@@ -106,6 +106,7 @@ def get_arguments(args=None):
     
 
     # EMBEDDING DIRECTORIES
+    parser.add_argument('--embeddings_dir', help='Storage directory of reid embeddings', type=str, default='detection_embeddings')
     parser.add_argument('--reid_embeddings_dir', help='Storage directory of reid embeddings', type=str, default='reid')
     parser.add_argument('--node_embeddings_dir', help='Storage directory of node embeddings', type=str, default='node')
 
