@@ -392,6 +392,9 @@ class HICLTracker:
 
         return hicl_graphs, loss, logs
 
+    def _display_log(tag, value, global_step):
+        print(f"Step [{global_step}]: {tag} - {value}")
+
     def _log_tb_class_metrics(self, epoch_val_logs, epoc_val_logs_per_depth):
         # Struct is 'layer name :  metric_name :val
         if self.logger is not None:
@@ -403,6 +406,7 @@ class HICLTracker:
                     if metric_name in _METRICS_TO_LOG:
                         tag = '/'.join(['val', 'secondary', prefix, metric_name])
                         self.logger.add_scalar(tag, metric_val, global_step=self.train_iteration)
+                        self._display_log(tag, metric_val, global_step=self.train_iteration)
 
     def _log_tb_train_metrics(self, logs):
         if self.logger is not None:
@@ -413,6 +417,7 @@ class HICLTracker:
                 if len(losses) > 0:
                     tag = '/'.join(['train', prefix, 'loss'])
                     self.logger.add_scalar(tag, losses[-1], global_step=self.train_iteration)
+                    self._display_log(tag, losses[-1], global_step=self.train_iteration)
 
     def _log_tb_mot_metrics(self, mot_metrics):
         if self.logger is not None:
@@ -429,7 +434,7 @@ class HICLTracker:
                             metric_val = np.mean(metric_val)
                         tag = '/'.join(['val', 'mot', metric_name])
                         self.logger.add_scalar(tag, metric_val, global_step=self.train_iteration)
-
+                        self._display_log(tag, metric_val, global_step=self.train_iteration)
 
     def train(self, train_dataset, validation_dataset=None):
         """
