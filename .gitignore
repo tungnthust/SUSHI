@@ -14,3 +14,4 @@
 /logs
 /TrackEval/data/
 /TrackEval/data.zip
+*.ipynb
