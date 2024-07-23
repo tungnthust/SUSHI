@@ -392,7 +392,7 @@ class HICLTracker:
 
         return hicl_graphs, loss, logs
 
-    def _display_log(tag, value, global_step):
+    def _display_log(self, tag, value, global_step):
         print(f"Step [{global_step}]: {tag} - {value}")
 
     def _log_tb_class_metrics(self, epoch_val_logs, epoc_val_logs_per_depth):
