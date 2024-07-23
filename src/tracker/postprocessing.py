@@ -5,10 +5,9 @@ class Postprocessor:
     """
     Class used   to perform all postprocessing.
     """
-    def __init__(self, traj_df, seq_info_dict, config):
+    def __init__(self, traj_df, config):
         #self.traj_df = traj_df.rename(columns={'id': 'ped_id'})
         self.traj_df = traj_df
-        self.seq_info_dict = seq_info_dict
         self.config = config
 
     def drop_short_trajectories(self):

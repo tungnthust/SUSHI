@@ -6,7 +6,7 @@ from src.models.mpntrack import MOTMPNet
 from src.models.hiclnet import HICLNet
 from src.models.motion.linear import LinearMotionModel
 from src.utils.deterministic import seed_worker, seed_generator
-from src.data.mot_datasets import MOTSceneDataset
+from src.data.mot_dataset import MOTDataset
 from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 import torch
@@ -34,10 +34,8 @@ class HICLTracker:
     """
     Hierarchical processor of the sequences. Consists of a trainable model and hierarchical processing scripts
     """
-    def __init__(self, config, seqs, splits):
+    def __init__(self, config):
         self.config = config
-        self.seqs = seqs
-        self.train_split, self.val_split, self.test_split = splits
 
         # Load the model (currently MPNTrack)
         self.model = self._get_model()
@@ -49,17 +47,8 @@ class HICLTracker:
             self.motion_model = None
 
         # Training - Set up the dataset and optimizer
-        if self.config.experiment_mode in ('train', 'train-cval'):
-            self.loss_function = FocalLoss(logits=True, gamma=self.config.gamma)
-            self.train_dataloader = self._get_train_dataloader()
-            self.optimizer = self._get_optimizer()
-            # Get validation dataset if exists
-            if self.val_split:
-                self.val_dataset = self._get_dataset(mode='val')
-
-        # Testing - Set up the dataset
-        elif self.config.experiment_mode == 'test':
-            self.test_dataset = self._get_dataset(mode='test')
+        self.loss_function = FocalLoss(logits=True, gamma=self.config.gamma)
+        self.optimizer = self._get_optimizer()
 
         # Iteration and epoch
         self.train_iteration = 0
@@ -103,22 +92,15 @@ class HICLTracker:
                        node_level_embed=self.config.node_level_embed # False
                        ).to(self.config.device) # cuda:0 if --cuda in run script else cpu
 
-    def _get_dataset(self, mode):
-        """
-        Create dataset objects
-        """
-        return MOTSceneDataset(config=self.config, seqs=self.seqs[mode], mode=mode)
-
-    def _get_train_dataloader(self):
+    def _get_dataloader(self, dataset, mode):
         """
          Set up the dataset and the dataloader
         """
-
-        train_dataset = self._get_dataset(mode='train')
-        train_loader = DataLoader(train_dataset, batch_size=self.config.num_batch, num_workers=self.config.num_workers,
-                                  shuffle=True,
-                                  worker_init_fn=seed_worker, generator=seed_generator(), )
-        return train_loader
+        is_shuffle = mode == 'train'
+        data_loader = DataLoader(dataset, batch_size=self.config.num_batch, num_workers=self.config.num_workers,
+                                  shuffle = is_shuffle,
+                                  worker_init_fn=seed_worker, generator=seed_generator())
+        return data_loader
 
     def _get_optimizer(self):
         """
@@ -253,13 +235,13 @@ class HICLTracker:
                 loss += self.loss_function(outputs['classified_edges'][step].view(-1), edge_labels.view(-1))
         return loss
 
-    def _train_epoch(self):
+    def _train_epoch(self, train_dataloader):
         """
         Train a single epoch
         """
         logs = {"Loss": [], "Loss_per_Depth": [[] for j in range(self.config.hicl_depth)], "Time": []}
 
-        for i, train_batch in enumerate(self.train_dataloader):
+        for i, train_batch in enumerate(train_dataloader):
             t_start = time.time()
 
             # Iteration update
@@ -292,7 +274,7 @@ class HICLTracker:
 
             # Verbose
             if i % self.config.verbose_iteration == 0 and i != 0:
-                print(f"Iteration {i} / {len(self.train_dataloader)} - Training Loss:", statistics.mean(logs["Loss"][i-self.config.verbose_iteration:i]), '- Time:', sum(logs["Time"][i-self.config.verbose_iteration:i]))  # Verbose
+                print(f"Iteration {i} / {len(train_dataloader)} - Training Loss:", statistics.mean(logs["Loss"][i-self.config.verbose_iteration:i]), '- Time:', sum(logs["Time"][i-self.config.verbose_iteration:i]))  # Verbose
 
             # Update active train depth if required
             if self.active_train_depth < self.config.hicl_depth:
@@ -449,15 +431,15 @@ class HICLTracker:
                         self.logger.add_scalar(tag, metric_val, global_step=self.train_iteration)
 
 
-    def train(self):
+    def train(self, train_dataset, validation_dataset=None):
         """
         Perform a full training
         """
-
+        train_data_loader = self._get_dataloader(train_dataset, mode='train')
         # First calculate the oracle results for validation
-        if self.val_split:
+        if validation_dataset:
         #if False:
-            _, _ = self.track(self.val_dataset, output_path=osp.join(self.config.experiment_path, 'oracle'), mode='val', oracle=True)
+            _, _ = self.track(validation_dataset, output_path=osp.join(self.config.experiment_path, 'oracle'), mode='val', oracle=True)
             evaluate_mot17(tracker_path=osp.join(self.config.experiment_path, 'oracle'), split=self.val_split,
                            data_path=self.config.data_path, tracker_sub_folder=self.config.mot_sub_folder,
                            output_sub_folder=self.config.mot_sub_folder)
@@ -480,7 +462,7 @@ class HICLTracker:
             os.makedirs(epoch_path, exist_ok=True)
 
             # Train for one epoch
-            epoch_train_logs = self._train_epoch()
+            epoch_train_logs = self._train_epoch(train_data_loader)
 
             # Train loss logs
             logs["Train_Loss"].append(statistics.mean(epoch_train_logs["Loss"]))
@@ -492,8 +474,8 @@ class HICLTracker:
                     logs["Train_Loss_per_Depth"][j].append(0.)
 
             # Validation steps
-            if self.val_split and epoch >= self.config.start_eval:
-                epoch_val_logs, epoc_val_logs_per_depth = self.track(dataset=self.val_dataset, output_path=epoch_path, mode='val', oracle=False)
+            if validation_dataset and epoch >= self.config.start_eval:
+                epoch_val_logs, epoc_val_logs_per_depth = self.track(dataset=validation_dataset, output_path=epoch_path, mode='val', oracle=False)
                 # Validation logs
                 logs["Val_Loss"].append(epoch_val_logs["Loss"])
                 for j in range(self.config.hicl_depth):
@@ -508,8 +490,8 @@ class HICLTracker:
                 self._log_tb_mot_metrics(mot_metrics) 
 
             # Plot losses
-            self._plot_losses(logs)
-            self._plot_losses_per_depth(logs)
+            # self._plot_losses(logs)
+            # self._plot_losses_per_depth(logs)
 
             # Save model checkpoint
             if self.config.save_cp:
@@ -560,7 +542,7 @@ class HICLTracker:
                     ped_labels = hicl_graphs[0].get_labels()
 
                     # Get graph df
-                    graph_df, _ = dataset.get_df_from_seq_and_frames(seq_name=seq_name, start_frame=start_frame, end_frame=end_frame)
+                    graph_df = dataset.get_df_from_seq_and_frames(seq_name=seq_name, start_frame=start_frame, end_frame=end_frame)
                     assert len(ped_labels) == graph_df.shape[0], "Ped Ids Label format is wrong"
 
                     # Each Connected Component is a Ped Id. Assign those values to our DataFrame:
@@ -576,7 +558,6 @@ class HICLTracker:
 
                 # Postprocess the dataframes - drop short trajectories
                 postprocess = Postprocessor(seq_merged_df.copy(),
-                                            seq_info_dict=dataset.seq_info_dicts[seq_name],
                                             config=self.config)
                 seq_output_df = postprocess.postprocess_trajectories()
 
