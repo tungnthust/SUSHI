@@ -29,7 +29,7 @@ class MOTDataset:
         self.seq_names = self.df['seq'].unique().tolist()
         # Index dataset
         self.seq_and_frames = self._index_dataset()
-        self.embedding_dir = self.config.embedding_dir
+        self.embeddings_dir = self.config.embeddings_dir
         # Sparse index per sequence for val and test datasets
         if self.mode in ('val', 'test'):
             self.sparse_frames_per_seq = self._sparse_index_dataset()
@@ -124,8 +124,8 @@ class MOTDataset:
 
     def _is_dets_and_embeds_ok(self, seq_name):
         # Verify the processed detections file
-        node_embeds_path = osp.join(self.embedding_dir, seq_name, self.config.node_embeddings_dir)
-        reid_embeds_path = osp.join(self.embedding_dir, seq_name, self.config.reid_embeddings_dir)
+        node_embeds_path = osp.join(self.embeddings_dir, seq_name, self.config.node_embeddings_dir)
+        reid_embeds_path = osp.join(self.embeddings_dir, seq_name, self.config.reid_embeddings_dir)
         try:
             num_frames = len(self._get_detections_by_seq_name(seq_name)['frame'].unique())
             processed_dets_exist = True
@@ -185,9 +185,9 @@ class MOTDataset:
         assert self.config.reid_embeddings_dir is not None and self.config.node_embeddings_dir
 
         # Directory paths
-        node_embeds_path = osp.join(self.embedding_dir, seq_name, self.config.node_embeddings_dir)
+        node_embeds_path = osp.join(self.embeddings_dir, seq_name, self.config.node_embeddings_dir)
 
-        reid_embeds_path = osp.join(self.embedding_dir, seq_name, self.config.reid_embeddings_dir)
+        reid_embeds_path = osp.join(self.embeddings_dir, seq_name, self.config.reid_embeddings_dir)
 
         # Delete if exists, and create the directories
         if osp.exists(node_embeds_path):
@@ -286,7 +286,7 @@ class MOTDataset:
         Load the embeddings corresponding to the detections specified in the det_df
         """
         # Retrieve the embeddings we need from their corresponding locations
-        embeddings_path = osp.join(self.embedding_dir, seq_name, embeddings_dir)
+        embeddings_path = osp.join(self.embeddings_dir, seq_name, embeddings_dir)
         # print("EMBEDDINGS PATH IS ", embeddings_path)
         frames_to_retrieve = sorted(det_df.frame.unique())
         embeddings_list = [torch.load(osp.join(embeddings_path, f"{frame_num}.pt")) for frame_num in frames_to_retrieve]
